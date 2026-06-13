@@ -9,7 +9,7 @@ def demand(messages):
     resp = request("POST", URL, body=json.dumps({"messages": messages}).encode(), headers=HEADER, timeout=600)
     return json.loads(resp.data.decode())["choices"][0]
 
-def generate_story(story_type, about, tags, requested_length, allow_freedom=True, updates=True, file="story.html", debug=False):
+def generate_story(story_type, about, tags, requested_length, allow_freedom=True, updates=True, file="story.html", debug=False, images=True):
     """
     Generate a story using the LLM based on the given parameters.
     Returns the story as a string.
@@ -71,16 +71,18 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
         if updates: print(f"Chapter {i + 1} complete")
 
     raw_story_parts = [x["content"] for x in chapter_chat if x["role"] == "assistant"]
-    print(raw_story_parts, "\n\n\n")
+
+    if images:
+        #do stuff here
+
     story_text = "".join(raw_story_parts)
-    print(story_text, "\n\n\n")
 
     # Write the story to a file
     if file:
         if file.endswith(".html"):
             #Shoved this into one line because I don't plan to edit it and it's irrelevant to actual code flow, but I could make it its own file or do more complicated template stuff
             html_lines = ["<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>body{margin:0;padding:10px;font-family:sans-serif;background:#fafafa;color:#333333} .dark{background:#2c2c2c;color:#f0f0f0} button{margin:10px;padding:5px 10px;background:#e0e0e0;color:#000;border:none;border-radius:4px;cursor:pointer} .dark button{background:#444;color:#fff}</style></head><body><button onclick=\"document.body.classList.toggle('dark')\">Toggle Dark Mode</button>"]
-            for part in raw_story_parts:
+            for i, part in enumerate(raw_story_parts, 1):
                 lines = part.splitlines()
                 if not lines:
                     continue
@@ -88,6 +90,8 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
                 html_lines.append(f"<h2>{lines[0]}</h2>")
                 for line in lines[1:]:
                     html_lines.append(f"<p>{line}</p>")
+                if images:
+                    html_lines.append(f"<img src=\"AI_{i:05d}_.png\" alt=\"Chapter {i} illustration\">")
             html_lines.append("</body></html>")
             story_html = '\n'.join(html_lines)
 
