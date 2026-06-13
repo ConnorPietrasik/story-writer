@@ -9,7 +9,7 @@ def demand(messages):
     resp = request("POST", URL, body=json.dumps({"messages": messages}).encode(), headers=HEADER, timeout=600)
     return json.loads(resp.data.decode())["choices"][0]
 
-def generate_story(story_type, about, tags, requested_length, allow_freedom=True, updates=True, file="story.html", debug=False, images=True):
+def generate_story(story_type, about, tags, requested_length, allow_freedom=True, updates=True, file="story.html", debug=False, images=False):
     """
     Generate a story using the LLM based on the given parameters.
     Returns the story as a string.
@@ -27,7 +27,9 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
     ]
 
     tmp = demand(outline_req)["message"]
-    if debug: print(tmp, "\n\n\n")
+    if debug: 
+        with open("story-writer.log", "w") as f:
+                f.write(json.dumps(tmp) + "\n\n\n")
     outline = tmp["content"]
     if updates: print("Outline complete")
 
@@ -44,7 +46,9 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
     ]
 
     tmp = demand(count_req)["message"]
-    if debug: print(tmp, "\n\n\n")
+    if debug: 
+        with open("story-writer.log", "a") as f:
+                f.write(json.dumps(tmp) + "\n\n\n")
     chapter_count = int(tmp["content"])
     if updates: print(f"Total chapters: {chapter_count}")
 
@@ -61,7 +65,9 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
 
     for i in range(chapter_count):
         ret = demand(chapter_chat)["message"]
-        if debug: print(ret, "\n\n\n")
+        if debug: 
+            with open("story-writer.log", "a") as f:
+                    f.write(json.dumps(ret) + "\n\n\n")
         ret.pop("reasoning_content", None)
         chapter_chat.append(ret)
         chapter_chat.append({
@@ -73,7 +79,27 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
     raw_story_parts = [x["content"] for x in chapter_chat if x["role"] == "assistant"]
 
     if images:
-        #do stuff here
+        image_chat = [
+            {
+                "role": "system",
+                "content": "You are an expert prompt engineer for the Anima image generation model. Your only purpose is to determine the best scene in a story segment and return a prompt suitable for generating an image of the scene. You are to only return the generated prompt, without anything extra.\n=== OUTPUT FORMAT ===\nA mix of Gelbooru tags (with spaces instead of underscores) and natural language descriptions. Start with always specifying character counts like 1girl, 1boy, 1other, 2girls, 2others, 1girl 1boy, 1girl 2boys, etc, then general scene tags + description, then more detailed tags and descriptions per character."
+            }
+        ]
+        for part in raw_story_parts:
+            image_chat.append({
+                "role": "user",
+                "content": part
+            })
+            prompts = []
+            ret = demand(image_chat)["message"]
+            if debug: 
+                with open("story-writer.log", "a") as f:
+                        f.write(json.dumps(ret) + "\n\n\n")
+            ret.pop("reasoning_content", None)
+            image_chat.append(ret)
+            prompts.append(ret["content"])
+
+        #TODO Actually generate images here
 
     story_text = "".join(raw_story_parts)
 
@@ -106,9 +132,9 @@ def generate_story(story_type, about, tags, requested_length, allow_freedom=True
     return story_text
 
 if __name__ == "__main__":
-    STORY_TYPE = "dark comedy fantasy"
+    STORY_TYPE = "dark fantasy"
     ABOUT = "a magical potato conquering a kingdom"
     TAGS = "dark magic, necromancy, eating disobedient mortals, potato minions"
     REQUESTED_LENGTH = "10,000 words"
 
-    print(generate_story(STORY_TYPE, ABOUT, TAGS, REQUESTED_LENGTH, debug=True))
+    print(generate_story(STORY_TYPE, ABOUT, TAGS, REQUESTED_LENGTH, debug=True, images=True))
